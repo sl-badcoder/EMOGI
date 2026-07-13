@@ -244,8 +244,11 @@ int main(int argc, char *argv[]) {
         case UVM_DIRECT:
             checkCudaErrors(cudaMallocManaged((void**)&edgeList_d, edge_size));
             file.read((char*)edgeList_d, edge_size);
-
+            size_t total_m, free_m;
+            cudaMemGetInfo(&free_m, &total_m);
+            checkCudaErrors(cudaMemPrefetchAsync(edgeList_d, ((size_t) (total_m * 0.8)) > edge_size ?  edge_size : ((size_t) (total_m * 0.8)), 0, 0));
             checkCudaErrors(cudaMemAdvise(edgeList_d, edge_size, cudaMemAdviseSetAccessedBy, device));
+            checkCudaErrors(cudaMemAdvise(edgeList_d, edge_size, cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
             break;
     }
 
@@ -295,7 +298,7 @@ int main(int argc, char *argv[]) {
         iter = 0;
 
         checkCudaErrors(cudaEventRecord(start, 0));
-
+        cudaError_t err;
         // Run BFS
         do {
             changed_h = false;
@@ -310,6 +313,11 @@ int main(int argc, char *argv[]) {
                     break;
                 case COALESCE_CHUNK:
                     kernel_coalesce_chunk<<<blockDim, numthreads>>>(label_d, level, vertex_count, vertexList_d, edgeList_d, changed_d);
+                    err = cudaGetLastError();
+                    if (err != cudaSuccess) {
+                        printf("CUDA Error: %s\n", cudaGetErrorString(err));
+                        exit(1);
+                    }
                     break;
                 default:
                     fprintf(stderr, "Invalid type\n");
