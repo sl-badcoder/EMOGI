@@ -246,9 +246,13 @@ int main(int argc, char *argv[]) {
             file.read((char*)edgeList_d, edge_size);
             size_t total_m, free_m;
             cudaMemGetInfo(&free_m, &total_m);
+#ifdef PREF
             checkCudaErrors(cudaMemPrefetchAsync(edgeList_d, ((size_t) (total_m * 0.8)) > edge_size ?  edge_size : ((size_t) (total_m * 0.8)), 0, 0));
+#endif
+#ifdef ADVISE
             checkCudaErrors(cudaMemAdvise(edgeList_d, edge_size, cudaMemAdviseSetAccessedBy, device));
             checkCudaErrors(cudaMemAdvise(edgeList_d, edge_size, cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
+#endif
             break;
     }
 
